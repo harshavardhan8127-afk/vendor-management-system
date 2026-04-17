@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Transition globals */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 🌙 Dark Mode Overrides for Hardcoded Theme Classes */
+html.dark, .dark body, .dark #root {
+  background-color: #0f172a !important; /* Base app bg */
+  color: #f8fafc !important;
+}
+
+/* Backgrounds */
+.dark .bg-\[\#f0f2f5\] { background-color: #1e293b !important; } /* Cards */
+.dark .bg-\[\#e4e6ea\] { background-color: #334155 !important; } /* Inputs */
+.dark .bg-\[\#dce1e8\] { background-color: #0f172a !important; } /* Main Wrapper bg */
+.dark .bg-white { background-color: #1e293b !important; } /* Sidebars/Navs */
+.dark .hover\:bg-\[\#e8ebf0\]:hover { background-color: #334155 !important; } /* Row hover */
+.dark .hover\:bg-\[\#e4e6ea\]:hover { background-color: #475569 !important; } /* Element hover */
+.dark .hover\:bg-gray-50:hover { background-color: #334155 !important; }
+.dark .hover\:bg-gray-100:hover { background-color: #475569 !important; }
+
+/* Text Colors */
+.dark .text-\[\#2d3748\] { color: #f8fafc !important; } /* Primary headings */
+.dark .text-\[\#4a5568\] { color: #cbd5e1 !important; } /* Secondary text */
+.dark .text-\[\#333\] { color: #f8fafc !important; }
+.dark .text-gray-900 { color: #f8fafc !important; }
+.dark .text-gray-800 { color: #e2e8f0 !important; }
+.dark .text-gray-700 { color: #cbd5e1 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .text-\[\#718096\] { color: #94a3b8 !important; }
+
+/* Borders */
+.dark .border-\[\#dce1e8\] { border-color: #334155 !important; } /* Standard border */
+.dark .border-\[\#c8ccd4\] { border-color: #334155 !important; }
+.dark .border-\[\#cbd5e1\] { border-color: #475569 !important; } /* Darker border */
+.dark .border-gray-200 { border-color: #334155 !important; }
+.dark .border-gray-100 { border-color: #1e293b !important; }
+
+/* Dividers */
+.dark .divide-\[\#dce1e8\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+/* Custom Scrollbar in Dark Mode */
+.dark::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.dark::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
