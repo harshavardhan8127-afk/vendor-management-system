@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'sonner';
+import { Edit2, Check, X } from 'lucide-react';
 
 export default function Transactions() {
     const [transactions, setTransactions] = useState([]);
+    const [editingId, setEditingId] = useState(null);
+    const [editStatus, setEditStatus] = useState('');
     
     useEffect(() => {
         api.get('/vendors')
@@ -11,6 +14,7 @@ export default function Transactions() {
                const rawVendors = Array.isArray(res.data) ? res.data : [];
                const mappedTxs = rawVendors.map(v => ({
                    id: v.id * 837 + 1024,
+                   vendorDbId: v.id,
                    vendorName: v.vendorName || 'Unknown Vendor',
                    transactionDate: new Date().toISOString().split('T')[0],
                    transactionType: v.category === 'Services' ? 'Service Invoice' : 'Supply Purchase',
@@ -21,6 +25,25 @@ export default function Transactions() {
            })
            .catch(console.error);
     }, []);
+
+    const handleSaveStatus = async (tx) => {
+        try {
+            const newVendorStatus = editStatus === 'Paid' ? 'Active' : 'Pending';
+            const res = await api.get(`/vendors/${tx.vendorDbId}`);
+            const vendor = res.data;
+            vendor.status = newVendorStatus;
+            await api.put(`/vendors/${tx.vendorDbId}`, vendor);
+            
+            setTransactions(transactions.map(t => 
+                t.id === tx.id ? { ...t, paymentStatus: editStatus } : t
+            ));
+            setEditingId(null);
+            toast.success("Transaction status updated successfully");
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to update transaction status");
+        }
+    };
 
     const handleExport = () => {
         if (transactions.length === 0) {
@@ -81,6 +104,7 @@ export default function Transactions() {
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Type</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Amount</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Status</th>
+                                <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#dce1e8] bg-[#f0f2f5]">
@@ -98,12 +122,35 @@ export default function Transactions() {
                                     <td className="px-5 py-4 text-sm text-[#4a5568]">{t.transactionType}</td>
                                     <td className="px-5 py-4 text-sm text-[#4a5568] font-medium">{t.amount}</td>
                                     <td className="px-5 py-4 text-sm">
-                                        <span className={`px-3 py-1 rounded-[4px] text-xs font-semibold text-white ${
-                                            t.paymentStatus === 'Paid' ? 'bg-[#5eab5e]' : 
-                                            t.paymentStatus === 'Pending' ? 'bg-[#ed8936]' : 'bg-[#c55b5b]'
-                                        }`}>
-                                            {t.paymentStatus || 'Pending'}
-                                        </span>
+                                        {editingId === t.id ? (
+                                            <select 
+                                                className="border border-[#cbd5e1] rounded px-2 py-1 text-sm bg-white focus:outline-none focus:border-[#4a72d1]"
+                                                value={editStatus}
+                                                onChange={(e) => setEditStatus(e.target.value)}
+                                            >
+                                                <option value="Paid">Paid</option>
+                                                <option value="Pending">Pending</option>
+                                            </select>
+                                        ) : (
+                                            <span className={`px-3 py-1 rounded-[4px] text-xs font-semibold text-white ${
+                                                t.paymentStatus === 'Paid' ? 'bg-[#5eab5e]' : 
+                                                t.paymentStatus === 'Pending' ? 'bg-[#ed8936]' : 'bg-[#c55b5b]'
+                                            }`}>
+                                                {t.paymentStatus || 'Pending'}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-5 py-4 text-sm">
+                                        {editingId === t.id ? (
+                                            <div className="flex space-x-2">
+                                                <button onClick={() => handleSaveStatus(t)} className="text-emerald-600 hover:text-emerald-800 p-1 bg-emerald-50 rounded cursor-pointer transition-colors shadow-sm"><Check className="h-4 w-4" /></button>
+                                                <button onClick={() => setEditingId(null)} className="text-rose-600 hover:text-rose-800 p-1 bg-rose-50 rounded cursor-pointer transition-colors shadow-sm"><X className="h-4 w-4" /></button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => { setEditingId(t.id); setEditStatus(t.paymentStatus === 'Paid' ? 'Paid' : 'Pending'); }} className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded bg-opacity-50 hover:bg-opacity-100 transition-colors cursor-pointer shadow-sm">
+                                                <Edit2 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

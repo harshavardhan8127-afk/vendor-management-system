@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { Edit2, Check, X, Trash2 } from 'lucide-react';
 
 export default function Dashboard() {
     const [vendors, setVendors] = useState([]);
@@ -11,6 +12,8 @@ export default function Dashboard() {
         avgPerformance: 0,
         openOrders: 0
     });
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
 
     const [formData, setFormData] = useState({
         vendorName: '',
@@ -19,6 +22,7 @@ export default function Dashboard() {
         totalSpend: '',
         paymentTerms: '',
         lastOrder: '',
+        contactNumber: '',
     });
 
     useEffect(() => {
@@ -71,13 +75,14 @@ export default function Dashboard() {
                 status: formData.status,
                 companyName: formData.paymentTerms,
                 totalSpend: parseSpend(formData.totalSpend),
-                contactPerson: formData.lastOrder,
+                registrationDate: formData.lastOrder,
+                phoneNumber: formData.contactNumber,
             };
             await api.post('/vendors', payload);
             toast.success('Vendor added successfully');
             fetchVendors();
             fetchSummary();
-            setFormData({ vendorName: '', category: '', status: 'Active', totalSpend: '', paymentTerms: '', lastOrder: '' });
+            setFormData({ vendorName: '', category: '', status: 'Active', totalSpend: '', paymentTerms: '', lastOrder: '', contactNumber: '' });
         } catch (err) {
             console.error("Error adding vendor:", err);
             toast.error('Error adding vendor');
@@ -85,7 +90,6 @@ export default function Dashboard() {
     };
 
     const handleDelete = async (id) => {
-        // Removed window.confirm so it doesn't block interactions
         try {
             await api.delete(`/vendors/${id}`);
             toast.success('Vendor deleted successfully');
@@ -94,6 +98,24 @@ export default function Dashboard() {
         } catch (err) {
             console.error("Error deleting vendor:", id, err);
             toast.error('Error deleting vendor - check console for details');
+        }
+    };
+
+    const handleEdit = (vendor) => {
+        setEditingId(vendor.id);
+        setEditData({ ...vendor });
+    };
+
+    const handleSaveEdit = async () => {
+        try {
+            await api.put(`/vendors/${editingId}`, editData);
+            toast.success('Vendor updated successfully');
+            setEditingId(null);
+            fetchVendors();
+            fetchSummary();
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to update vendor');
         }
     };
 
@@ -107,9 +129,14 @@ export default function Dashboard() {
         return Math.round(total).toLocaleString();
     };
 
-    // Use backend-provided average performance when available
     const getAvgPerformance = () => {
-        return summary.avgPerformance || 0;
+        if (!vendors || vendors.length === 0) return 0;
+        const total = vendors.reduce((acc, v) => {
+            if (v.status === 'Active') return acc + 95;
+            if (v.status === 'Pending') return acc + 60;
+            return acc + 30; // Default for Inactive or other
+        }, 0);
+        return Math.round(total / vendors.length);
     };
 
     // Compute pending orders based on vendors with 'Pending' status
@@ -205,16 +232,22 @@ export default function Dashboard() {
                         >
                             <option value="Active">Active</option>
                             <option value="Pending">Pending</option>
-                            <option value="Inactive">Inactive</option>
                         </select>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                         <input
                             type="text"
-                            placeholder="Total Spend (example: ₹250K)"
+                            placeholder="Total Spend (ex: ₹250K)"
                             className="bg-[#e4e6ea] border border-transparent rounded px-4 py-2.5 focus:bg-white focus:outline-none transition-colors text-sm"
                             value={formData.totalSpend}
                             onChange={e => setFormData({...formData, totalSpend: e.target.value})}
+                        />
+                        <input
+                            type="text"
+                            placeholder="Contact Number"
+                            className="bg-[#e4e6ea] border border-transparent rounded px-4 py-2.5 focus:bg-white focus:outline-none transition-colors text-sm"
+                            value={formData.contactNumber}
+                            onChange={e => setFormData({...formData, contactNumber: e.target.value})}
                         />
                         <input
                             type="text"
@@ -246,41 +279,92 @@ export default function Dashboard() {
                             <tr className="border-b border-[#dce1e8]">
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Vendor</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Category</th>
-                                <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Status</th>
+                                <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Delivery Status</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Spend</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Terms</th>
+                                <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Contact</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Date of Order</th>
                                 <th className="px-5 py-4 text-sm font-semibold text-[#4a5568]">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#dce1e8]">
                             {vendors.length === 0 ? (
-                                <tr><td colSpan="7" className="px-5 py-8 text-center text-sm text-[#718096]">No vendors found.</td></tr>
+                                <tr><td colSpan="8" className="px-5 py-8 text-center text-sm text-[#718096]">No vendors found.</td></tr>
                             ) : vendors.map((v) => {
                                 const spend = getEffectiveSpend(v);
                                 return (
                                 <tr key={v.id} className="hover:bg-[#e8ebf0] transition-colors">
-                                    <td className="px-5 py-4 text-sm text-[#4a72d1] font-medium">{v.vendorName || '-'}</td>
-                                    <td className="px-5 py-4 text-sm text-[#4a5568]">{v.category || '-'}</td>
-                                    <td className="px-5 py-4 text-sm">
-                                        <span className={`px-3 py-1 rounded-[4px] text-xs font-semibold text-white ${
-                                            v.status === 'Active' ? 'bg-[#5eab5e]' : 
-                                            v.status === 'Pending' ? 'bg-[#ed8936]' : 'bg-[#c55b5b]'
-                                        }`}>
-                                            {v.status || 'Active'}
-                                        </span>
-                                    </td>
-                                    <td className="px-5 py-4 text-sm text-[#4a5568]">{spend != null ? `₹${formatTotalSpend(spend)}` : '-'}</td>
-                                    <td className="px-5 py-4 text-sm text-[#4a5568]">{v.companyName || '-'}</td>
-                                    <td className="px-5 py-4 text-sm text-[#4a5568]">{v.contactPerson || '-'}</td>
-                                    <td className="px-5 py-4 text-sm">
-                                        <button 
-                                            onClick={() => handleDelete(v.id)}
-                                            className="bg-[#ba5454] hover:bg-[#a24949] text-white px-4 py-1.5 rounded-[4px] text-xs transition-colors shadow-sm cursor-pointer z-10 relative"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
+                                    {editingId === v.id ? (
+                                        <>
+                                            <td className="px-5 py-3 text-sm">
+                                                <input className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm focus:outline-none focus:border-[#4a72d1] bg-white transition-colors shadow-sm" value={editData.vendorName || ''} onChange={(e) => setEditData({...editData, vendorName: e.target.value})} />
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <select className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm bg-white focus:outline-none focus:border-[#4a72d1] shadow-sm appearance-none" value={editData.category || ''} onChange={(e) => setEditData({...editData, category: e.target.value})}>
+                                                    <option value="IT & Software">IT & Software</option>
+                                                    <option value="Logistics & Transport">Logistics & Transport</option>
+                                                    <option value="Raw Materials">Raw Materials</option>
+                                                    <option value="Packaging & Supply">Packaging & Supply</option>
+                                                    <option value="Maintenance & Repair">Maintenance & Repair</option>
+                                                    <option value="Marketing & Advertising">Marketing & Advertising</option>
+                                                    <option value="Legal & Compliance">Legal & Compliance</option>
+                                                    <option value="Freelance & Contract">Freelance & Contract</option>
+                                                    <option value="General Services">General Services</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <select className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm bg-white focus:outline-none focus:border-[#4a72d1] shadow-sm appearance-none" value={editData.status || ''} onChange={(e) => setEditData({...editData, status: e.target.value})}>
+                                                    <option value="Active">Active</option>
+                                                    <option value="Pending">Pending</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <input className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm focus:outline-none focus:border-[#4a72d1] bg-white shadow-sm" value={editData.totalSpend || ''} onChange={(e) => setEditData({...editData, totalSpend: parseSpend(e.target.value) || e.target.value})} placeholder="Spend" />
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <input className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm focus:outline-none focus:border-[#4a72d1] bg-white shadow-sm" value={editData.companyName || ''} onChange={(e) => setEditData({...editData, companyName: e.target.value})} />
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <input className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm focus:outline-none focus:border-[#4a72d1] bg-white shadow-sm" value={editData.phoneNumber || ''} onChange={(e) => setEditData({...editData, phoneNumber: e.target.value})} />
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <input type="date" className="border border-[#cbd5e1] rounded px-2 py-1.5 w-full text-sm focus:outline-none focus:border-[#4a72d1] bg-white shadow-sm text-[#4a5568]" value={editData.registrationDate ? String(editData.registrationDate).split('T')[0] : ''} onChange={(e) => setEditData({...editData, registrationDate: e.target.value})} />
+                                            </td>
+                                            <td className="px-5 py-3 text-sm">
+                                                <div className="flex space-x-2">
+                                                    <button onClick={handleSaveEdit} className="text-emerald-600 hover:text-emerald-800 p-1.5 bg-emerald-50 rounded cursor-pointer shadow-sm transition-colors border border-emerald-100"><Check className="h-3.5 w-3.5" /></button>
+                                                    <button onClick={() => setEditingId(null)} className="text-rose-600 hover:text-rose-800 p-1.5 bg-rose-50 border border-rose-100 rounded cursor-pointer shadow-sm transition-colors"><X className="h-3.5 w-3.5" /></button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="px-5 py-4 text-sm text-[#4a72d1] font-medium">{v.vendorName || '-'}</td>
+                                            <td className="px-5 py-4 text-sm text-[#4a5568]">{v.category || '-'}</td>
+                                            <td className="px-5 py-4 text-sm">
+                                                <span className={`px-3 py-1 rounded-[4px] text-xs font-semibold text-white ${
+                                                    v.status === 'Active' ? 'bg-[#5eab5e]' : 
+                                                    v.status === 'Pending' ? 'bg-[#ed8936]' : 'bg-[#c55b5b]'
+                                                }`}>
+                                                    {v.status || 'Active'}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-4 text-sm text-[#4a5568]">{spend != null ? `₹${formatTotalSpend(spend)}` : '-'}</td>
+                                            <td className="px-5 py-4 text-sm text-[#4a5568]">{v.companyName || '-'}</td>
+                                            <td className="px-5 py-4 text-sm text-[#4a5568] font-medium">{v.phoneNumber || v.contactPerson || '-'}</td>
+                                            <td className="px-5 py-4 text-sm text-[#4a5568]">{v.registrationDate ? String(v.registrationDate).split('T')[0] : (v.contactPerson && v.contactPerson.includes('-') ? v.contactPerson : '-')}</td>
+                                            <td className="px-5 py-4 text-sm">
+                                                <div className="flex space-x-2">
+                                                    <button onClick={() => handleEdit(v)} className="text-indigo-600 hover:text-indigo-800 p-1.5 bg-white border border-indigo-100 shadow-sm rounded transition-colors cursor-pointer inline-flex items-center justify-center min-w-[28px] min-h-[28px]">
+                                                        <Edit2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(v.id)} className="text-rose-600 hover:text-rose-800 p-1.5 bg-white border border-rose-100 shadow-sm rounded transition-colors cursor-pointer inline-flex items-center justify-center min-w-[28px] min-h-[28px]">
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    )}
                                 </tr>
                             )})}
                         </tbody>
@@ -306,7 +390,7 @@ export default function Dashboard() {
                         </div>
                     </div>
                     <div className="bg-[#f0f2f5] p-6 rounded shadow-sm">
-                        <h3 className="text-lg font-bold text-[#2d3748] mb-4">Vendor Status Distribution</h3>
+                        <h3 className="text-lg font-bold text-[#2d3748] mb-4">Vendor Delivery Status</h3>
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>

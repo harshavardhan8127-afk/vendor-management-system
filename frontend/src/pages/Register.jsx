@@ -9,8 +9,7 @@ export default function Register() {
         username: '',
         email: '',
         password: '',
-        confirmPassword: '',
-        role: ''
+        confirmPassword: ''
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -33,7 +32,7 @@ export default function Register() {
             await api.post('/auth/register', {
                 username: formData.username,
                 password: formData.password,
-                role: formData.role || 'ROLE_USER'
+                role: 'ROLE_USER'
             });
             toast.success("Account created successfully!");
             navigate('/login');
@@ -138,20 +137,6 @@ export default function Register() {
                                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </div>
                             </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Role</label>
-                            <select 
-                                className="w-full border border-gray-200 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-white text-gray-900 appearance-none bg-no-repeat"
-                                style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%236b7280\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em 1em' }}
-                                value={formData.role}
-                                onChange={(e) => setFormData({...formData, role: e.target.value})}
-                            >
-                                <option value="" disabled>Select a role</option>
-                                <option value="ROLE_ADMIN">Admin</option>
-                                <option value="ROLE_USER">User</option>
-                            </select>
                         </div>
 
                         <div className="pt-2">
