@@ -77,11 +77,20 @@ public class DashboardController {
                 .mapToDouble(t -> t.getAmount() == null ? 0 : t.getAmount())
                 .sum();
                 
-        double avgRating = userVendors.stream()
-                .mapToDouble(v -> v.getRating() == null ? 0 : v.getRating())
-                .average()
-                .orElse(0);
-        int avgPerformance = (int) Math.round(avgRating * 20); // Converts 5.0 to 100%
+        double totalScore = 0;
+        for (Vendor v : userVendors) {
+            String status = v.getStatus();
+            if ("Active".equalsIgnoreCase(status)) {
+                totalScore += 95;
+            } else if ("Pending".equalsIgnoreCase(status)) {
+                totalScore += 60;
+            } else if ("Inactive".equalsIgnoreCase(status)) {
+                totalScore += 30;
+            } else {
+                totalScore += 80; // default score
+            }
+        }
+        int avgPerformance = userVendors.isEmpty() ? 100 : (int) Math.round(totalScore / userVendors.size());
         
         long openOrders = purchaseRepository.findAll().stream()
                 .filter(p -> vendorIds.contains(p.getVendorId()))

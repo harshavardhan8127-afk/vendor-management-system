@@ -1,154 +1,220 @@
-import React, { useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
-
-const CATEGORIES = [
-  "Software", "Hardware", "Furniture", "Stationary", "IT services", "Construction", 
-  "Electrical", "Plumbing", "Security", "Cleaning and maintenance", "Logistics and transport", 
-  "Packaging", "Printing", "Marketing and advertising", "Consulting", "HR and recruitment", 
-  "Training", "Food and catering", "Medical and health", "Event management"
-];
-
-const prefixes = ["Global", "Apex", "Nova", "Elite", "Pro", "Prime", "Alpha", "Blue", "Vertex", "Omega"];
-const suffixes = ["Solutions", "Systems", "Group", "Corp", "Inc", "Partners", "Logistics", "Services", "Tech", "Works"];
-
-// Generates exactly 100 uniquely mocked vendors mapped iteratively
-const MOCK_VENDORS = Array.from({ length: 100 }).map((_, i) => {
-    const categoryName = CATEGORIES[i % CATEGORIES.length];
-    const name = `${prefixes[i % prefixes.length]} ${categoryName.split(' ')[0]} ${suffixes[(Math.floor(i / 10)) % suffixes.length]}`;
-    return {
-        id: i + 1,
-        name: name,
-        email: `contact@${name.replace(/[^a-zA-Z]/g, '').toLowerCase()}.com`,
-        category: categoryName
-    };
-});
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
+import { Plus, Edit2, Trash2, Search, Filter } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function VendorList() {
-    const [selectedCategory, setSelectedCategory] = useState('All');
+    const [vendors, setVendors] = useState([]);
     const [search, setSearch] = useState('');
-    const [selectedVendor, setSelectedVendor] = useState(null);
+    const [filterStatus, setFilterStatus] = useState('All');
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
 
-    const filteredVendors = MOCK_VENDORS.filter(v => {
-        const matchesCat = selectedCategory === 'All' || v.category.toLowerCase() === selectedCategory.toLowerCase();
-        const matchesSearch = v.name.toLowerCase().includes(search.toLowerCase());
-        return matchesCat && matchesSearch;
+    const fetchVendors = () => {
+        api.get('/vendors').then(res => setVendors(res.data)).catch(console.error);
+    };
+
+    useEffect(() => {
+        fetchVendors();
+    }, []);
+
+    const handleEdit = (vendor) => {
+        setEditingId(vendor.id);
+        setEditData({ ...vendor });
+    };
+
+    const handleSaveEdit = async () => {
+        try {
+            await api.put(`/vendors/${editingId}`, editData);
+            setVendors(vendors.map(v => v.id === editingId ? { ...v, ...editData } : v));
+            setEditingId(null);
+            toast.success('Vendor updated successfully');
+        } catch (err) {
+            toast.error('Failed to update vendor');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if(window.confirm('Are you sure you want to delete this vendor?')) {
+            try {
+                await api.delete(`/vendors/${id}`);
+                setVendors(vendors.filter(v => v.id !== id));
+                toast.success('Vendor deleted successfully');
+            } catch (err) {
+                toast.error('Failed to delete vendor');
+            }
+        }
+    };
+
+    const filteredVendors = vendors.filter(v => {
+        const matchesSearch = v.vendorName?.toLowerCase().includes(search.toLowerCase()) || 
+                              v.category?.toLowerCase().includes(search.toLowerCase());
+        const matchesStatus = filterStatus === 'All' ? true : v.status === filterStatus;
+        return matchesSearch && matchesStatus;
     });
+    const formatMoney = (value) => {
+        if (value === null || value === undefined) return '-';
+        const num = Number(value);
+        if (!isFinite(num)) return '-';
+        if (num >= 1000000) return '₹' + (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return '₹' + (num / 1000).toFixed(1) + 'K';
+        return '₹' + Math.round(num).toLocaleString();
+    };
+
+    const navigate = useNavigate();
+
+    const parseSpend = (s) => {
+        if (!s) return null;
+        let v = String(s).replace(/[₹$,\s]/g, '').toLowerCase();
+        let multiplier = 1;
+        if (v.endsWith('k')) { multiplier = 1000; v = v.slice(0, -1); }
+        if (v.endsWith('m')) { multiplier = 1000000; v = v.slice(0, -1); }
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n * multiplier;
+    };
+
+    const getEffectiveSpend = (vendor) => {
+        if (vendor.totalSpend != null) return vendor.totalSpend;
+        return parseSpend(vendor.email);
+    };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-12">
+        <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Top 100 Verified Vendors</h2>
-                    <p className="text-slate-500 text-sm mt-1">Browse and filter our carefully curated list of world-class operational partners.</p>
+                    <h2 className="text-2xl font-bold text-slate-800">Vendors</h2>
+                    <p className="text-slate-500 text-sm mt-1">Manage all your company vendors efficiently.</p>
                 </div>
+                <button onClick={() => navigate('/')} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl flex items-center font-medium shadow-sm transition-colors">
+                    <Plus className="h-5 w-5 mr-2" />
+                    Add Vendor
+                </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
-                <div className="flex flex-col sm:flex-row gap-4 items-center">
-                    <div className="relative w-full md:w-96">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between bg-slate-50/50">
+                    <div className="relative max-w-sm w-full">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="h-4 w-4 text-slate-400" />
                         </div>
                         <input
                             type="text"
-                            placeholder="Search among top vendors..."
-                            className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow"
+                            placeholder="Search vendors..."
+                            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-                    <div className="relative w-full md:w-80">
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="block w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none bg-white cursor-pointer text-slate-700 font-medium transition-shadow"
-                        >
-                            <option value="All">All Categories</option>
-                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Filter className="h-4 w-4 text-indigo-500" />
-                        </div>
-                    </div>
+                    <button onClick={() => setFilterStatus(prev => prev === 'All' ? 'Active' : prev === 'Active' ? 'Pending' : prev === 'Pending' ? 'Inactive' : 'All')} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 flex items-center hover:bg-slate-50 min-w-[120px] justify-center cursor-pointer transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <Filter className="h-4 w-4 mr-2" />
+                        {filterStatus === 'All' ? 'Filter' : filterStatus}
+                    </button>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Vendor</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-100">
+                            {filteredVendors.map((vendor) => {
+                                const spend = getEffectiveSpend(vendor);
+                                return (
+                                <tr key={vendor.id} className="hover:bg-slate-50 transition-colors">
+                                    {editingId === vendor.id ? (
+                                        <>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <input className="border border-slate-300 rounded px-2 py-1.5 w-full text-sm text-slate-900 mb-1 focus:outline-none focus:border-indigo-500" value={editData.vendorName || ''} onChange={e => setEditData({...editData, vendorName: e.target.value})} placeholder="Vendor Name" />
+                                                <input className="border border-slate-300 rounded px-2 py-1.5 w-full text-sm text-slate-900 focus:outline-none focus:border-indigo-500" value={editData.companyName || ''} onChange={e => setEditData({...editData, companyName: e.target.value})} placeholder="Company Name" />
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <input className="border border-slate-300 rounded px-2 py-1.5 w-full text-sm text-slate-900 focus:outline-none focus:border-indigo-500" value={editData.contactPerson || ''} onChange={e => setEditData({...editData, contactPerson: e.target.value})} placeholder="Contact Person" />
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <select className="border border-slate-300 rounded px-2 py-1.5 w-full text-sm text-slate-900 bg-white focus:outline-none focus:border-indigo-500" value={editData.category || ''} onChange={e => setEditData({...editData, category: e.target.value})}>
+                                                    <option value="IT & Software">IT & Software</option>
+                                                    <option value="Logistics & Transport">Logistics & Transport</option>
+                                                    <option value="Raw Materials">Raw Materials</option>
+                                                    <option value="Packaging & Supply">Packaging & Supply</option>
+                                                    <option value="Maintenance & Repair">Maintenance & Repair</option>
+                                                    <option value="Marketing & Advertising">Marketing & Advertising</option>
+                                                    <option value="Legal & Compliance">Legal & Compliance</option>
+                                                    <option value="Freelance & Contract">Freelance & Contract</option>
+                                                    <option value="General Services">General Services</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <select className="border border-slate-300 rounded px-2 py-1.5 w-full text-sm text-slate-900 bg-white focus:outline-none focus:border-indigo-500" value={editData.status || ''} onChange={e => setEditData({...editData, status: e.target.value})}>
+                                                    <option value="Active">Active</option>
+                                                    <option value="Pending">Pending</option>
+                                                    <option value="Inactive">Inactive</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex flex-col gap-2 items-end">
+                                                    <button onClick={handleSaveEdit} className="text-emerald-600 hover:text-emerald-900 text-xs uppercase font-bold cursor-pointer">Save</button>
+                                                    <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-slate-700 text-xs uppercase font-bold cursor-pointer">Cancel</button>
+                                                </div>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg">
+                                                        {vendor.vendorName?.charAt(0) || 'V'}
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-slate-900">{vendor.vendorName}</div>
+                                                        <div className="text-sm text-slate-500">{vendor.companyName}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-slate-900">{vendor.contactPerson}</div>
+                                                <div className="text-sm text-slate-500">
+                                                    {spend != null ? formatMoney(spend) : ''}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-700">
+                                                    {vendor.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${vendor.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : (vendor.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')}`}>
+                                                    {vendor.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button onClick={() => handleEdit(vendor)} className="text-indigo-600 hover:text-indigo-900 mx-2 p-1 bg-indigo-50 rounded bg-opacity-50 hover:bg-opacity-100 transition-colors cursor-pointer">
+                                                    <Edit2 className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => handleDelete(vendor.id)} className="text-rose-600 hover:text-rose-900 mx-2 p-1 bg-rose-50 rounded bg-opacity-50 hover:bg-opacity-100 transition-colors cursor-pointer">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </td>
+                                        </>
+                                    )}
+                                </tr>
+                            )})}
+                            {filteredVendors.length === 0 && (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                                        No vendors found matching your search.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                {filteredVendors.map(vendor => (
-                    <div 
-                        key={vendor.id}
-                        onClick={() => setSelectedVendor(vendor)}
-                        className="bg-white border border-slate-100 rounded-2xl p-5 cursor-pointer hover:scale-105 hover:bg-slate-50 transition-all duration-300 shadow-sm hover:shadow-lg flex flex-col justify-between h-36 relative overflow-hidden group"
-                    >
-                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-indigo-50 rounded-full group-hover:scale-150 transition-transform duration-500 opacity-50 z-0"></div>
-                        <div className="relative z-10 flex flex-col h-full justify-between">
-                            <h3 className="font-bold text-slate-800 leading-tight">{vendor.name}</h3>
-                            <span className="inline-block mt-3 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-[10px] uppercase tracking-wider font-bold rounded-lg w-fit shadow-sm">
-                                {vendor.category}
-                            </span>
-                        </div>
-                    </div>
-                ))}
-                {filteredVendors.length === 0 && (
-                    <div className="col-span-full py-16 text-center text-slate-500 bg-white rounded-2xl shadow-sm border border-slate-100">
-                        <p className="text-lg">No vendors found matching your criteria.</p>
-                    </div>
-                )}
-            </div>
-
-            {/* Premium Details Modal */}
-            {selectedVendor && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    {/* Backdrop */}
-                    <div 
-                        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer transition-opacity" 
-                        onClick={() => setSelectedVendor(null)}
-                    ></div>
-                    
-                    {/* Modal Content */}
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden transform scale-100 transition-all">
-                        {/* Header Graphic */}
-                        <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 h-32 w-full absolute top-0 left-0"></div>
-                        
-                        {/* Close Button */}
-                        <button 
-                            onClick={() => setSelectedVendor(null)}
-                            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-1.5 transition-colors z-20 cursor-pointer"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                        
-                        {/* Content Body */}
-                        <div className="pt-16 px-8 pb-8 relative z-10 flex flex-col items-center text-center">
-                            {/* Avatar */}
-                            <div className="h-24 w-24 rounded-2xl bg-white shadow-xl flex items-center justify-center text-4xl font-extrabold text-indigo-600 border-4 border-white mb-5 transform -translate-y-2">
-                                {selectedVendor.name.charAt(0)}
-                            </div>
-                            
-                            <h2 className="text-2xl font-bold text-slate-800">{selectedVendor.name}</h2>
-                            <p className="inline-block mt-3 px-4 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-full shadow-sm">
-                                {selectedVendor.category}
-                            </p>
-                            
-                            {/* Detailed Info */}
-                            <div className="mt-8 w-full space-y-5 bg-slate-50 p-5 rounded-2xl border border-slate-100 text-left">
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 shadow-transparent">BUSINESS MAIL</p>
-                                    <p className="text-slate-700 font-semibold text-sm break-all">{selectedVendor.email}</p>
-                                </div>
-                                <div className="h-px w-full bg-slate-200"></div>
-                                <div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">VERIFICATION</p>
-                                    <p className="text-emerald-600 font-bold text-sm flex items-center">
-                                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 mr-2 shadow-sm"></span> 
-                                        Top 100 Verified Partner
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
