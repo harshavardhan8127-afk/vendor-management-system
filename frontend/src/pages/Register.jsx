@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Layers, Moon, Eye } from 'lucide-react';
+import { Layers, Moon, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../services/api';
 
@@ -12,11 +12,18 @@ export default function Register() {
         confirmPassword: '',
         role: ''
     });
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleRegister = async (e) => {
         e.preventDefault();
         
+        if (formData.password.length < 8) {
+            toast.error("Password must be at least 8 characters long");
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             toast.error("Passwords do not match");
             return;
@@ -101,14 +108,17 @@ export default function Register() {
                             <label className="block text-sm font-medium text-gray-500 mb-1">Password</label>
                             <div className="relative">
                                 <input 
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="Create a password"
                                     className="w-full border border-gray-200 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-white text-gray-900 pr-10"
                                     value={formData.password}
                                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                                     required
+                                    minLength={8}
                                 />
-                                <Eye className="absolute right-3 top-3 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
+                                <div className="absolute right-3 top-3 cursor-pointer text-gray-400 hover:text-gray-600" onClick={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </div>
                             </div>
                         </div>
 
@@ -116,14 +126,17 @@ export default function Register() {
                             <label className="block text-sm font-medium text-gray-500 mb-1">Confirm Password</label>
                             <div className="relative">
                                 <input 
-                                    type="password"
+                                    type={showConfirmPassword ? "text" : "password"}
                                     placeholder="Confirm your password"
                                     className="w-full border border-gray-200 rounded-md px-3.5 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors bg-white text-gray-900 pr-10"
                                     value={formData.confirmPassword}
                                     onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                                     required
+                                    minLength={8}
                                 />
-                                <Eye className="absolute right-3 top-3 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
+                                <div className="absolute right-3 top-3 cursor-pointer text-gray-400 hover:text-gray-600" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </div>
                             </div>
                         </div>
 

@@ -16,6 +16,7 @@ CREATE TABLE vendors (
     address TEXT,
     category VARCHAR(100),
     company_name VARCHAR(255),
+    total_spend DOUBLE,
     registration_date DATE,
     status VARCHAR(50),
     rating DOUBLE

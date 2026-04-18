@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { toast } from 'sonner';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 export default function Dashboard() {
     const [vendors, setVendors] = useState([]);
@@ -44,15 +45,32 @@ export default function Dashboard() {
         }
     }
 
+    // parse displayed spend like "₹25K" or "30000" into a number
+    const parseSpend = (s) => {
+        if (!s) return null;
+        let v = String(s).replace(/[₹$,\s]/g, '').toLowerCase();
+        let multiplier = 1;
+        if (v.endsWith('k')) { multiplier = 1000; v = v.slice(0, -1); }
+        if (v.endsWith('m')) { multiplier = 1000000; v = v.slice(0, -1); }
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n * multiplier;
+    };
+
+    const getEffectiveSpend = (vendor) => {
+        if (vendor.totalSpend != null) return vendor.totalSpend;
+        return parseSpend(vendor.email);
+    };
+
     const handleAdd = async (e) => {
         e.preventDefault();
         try {
+
             const payload = {
                 vendorName: formData.vendorName,
                 category: formData.category,
                 status: formData.status,
                 companyName: formData.paymentTerms,
-                email: formData.totalSpend,
+                totalSpend: parseSpend(formData.totalSpend),
                 contactPerson: formData.lastOrder,
             };
             await api.post('/vendors', payload);
@@ -79,54 +97,55 @@ export default function Dashboard() {
         }
     };
 
-    const calculateTotalSpend = () => {
-        let total = 0;
-        vendors.forEach(v => {
-            if (v.email) {
-                let val = v.email.replace(/[₹$,]/g, '').trim().toLowerCase();
-                let multiplier = 1;
-                if (val.endsWith('k')) {
-                    multiplier = 1000;
-                    val = val.replace('k', '');
-                } else if (val.endsWith('m')) {
-                    multiplier = 1000000;
-                    val = val.replace('m', '');
-                }
-                const num = parseFloat(val);
-                if (!isNaN(num)) {
-                    total += (num * multiplier);
-                }
-            }
-        });
-        
-        if (total === 0) return "0";
+    // Format a numeric total spend coming from the backend summary
+    const formatTotalSpend = (value) => {
+        if (!value) return '0';
+        const total = Number(value);
+        if (isNaN(total) || total === 0) return '0';
         if (total >= 1000000) return (total / 1000000).toFixed(1) + 'M';
         if (total >= 1000) return (total / 1000).toFixed(1) + 'K';
-        return total.toLocaleString();
+        return Math.round(total).toLocaleString();
     };
 
-    const calculateAvgPerformance = () => {
-        if (vendors.length === 0) return 0;
-        let totalScore = 0;
-        vendors.forEach(v => {
-            if (v.status === 'Active') totalScore += 94;
-            else if (v.status === 'Pending') totalScore += 60;
-            else if (v.status === 'Inactive') totalScore += 25;
-            else totalScore += 80;
-        });
-        return Math.round(totalScore / vendors.length);
+    // Use backend-provided average performance when available
+    const getAvgPerformance = () => {
+        return summary.avgPerformance || 0;
     };
 
-    const calculateOpenOrders = () => {
-        let openOrders = 0;
-        vendors.forEach(v => {
-            if (v.status === 'Active') openOrders += 7;
-            else if (v.status === 'Pending') openOrders += 15;
-            else if (v.status === 'Inactive') openOrders += 1;
-            else openOrders += 2;
-        });
-        return openOrders;
+    // Compute pending orders based on vendors with 'Pending' status
+    const getOpenOrders = () => {
+        return vendors.filter(v => v.status === 'Pending').length;
     };
+
+    // Chart Data Preparation
+    const spendByCategory = React.useMemo(() => {
+        const data = {};
+        vendors.forEach(v => {
+            const cat = v.category || 'Uncategorized';
+            const spend = getEffectiveSpend(v) || 0;
+            data[cat] = (data[cat] || 0) + spend;
+        });
+        return Object.entries(data)
+            .map(([name, spend]) => ({ name, spend }))
+            .sort((a, b) => b.spend - a.spend);
+    }, [vendors]);
+
+    const vendorStatusData = React.useMemo(() => {
+        const data = { Active: 0, Pending: 0, Inactive: 0 };
+        vendors.forEach(v => {
+            const status = v.status || 'Active';
+            if (data[status] !== undefined) {
+                data[status] += 1;
+            } else {
+                data['Active'] += 1;
+            }
+        });
+        return [
+            { name: 'Active', value: data.Active, fill: '#5eab5e' },
+            { name: 'Pending', value: data.Pending, fill: '#ed8936' },
+            { name: 'Inactive', value: data.Inactive, fill: '#c55b5b' },
+        ].filter(d => d.value > 0);
+    }, [vendors]);
 
     return (
         <div className="space-y-8 max-w-6xl">
@@ -138,15 +157,15 @@ export default function Dashboard() {
                 </div>
                 <div className="bg-[#f0f2f5] p-5 rounded shadow-sm border-t-4 border-[#5eab5e]">
                     <p className="text-sm font-semibold text-[#4a5568] mb-2">Total Spend</p>
-                    <p className="text-3xl text-[#2d3748]">₹{calculateTotalSpend()}</p>
+                    <p className="text-3xl text-[#2d3748]">₹{formatTotalSpend(summary.totalSpend)}</p>
                 </div>
                 <div className="bg-[#f0f2f5] p-5 rounded shadow-sm border-t-4 border-[#ed8936]">
                     <p className="text-sm font-semibold text-[#4a5568] mb-2">Avg Performance</p>
-                    <p className="text-3xl text-[#2d3748]">{calculateAvgPerformance()}%</p>
+                    <p className="text-3xl text-[#2d3748]">{getAvgPerformance()}%</p>
                 </div>
                 <div className="bg-[#f0f2f5] p-5 rounded shadow-sm border-t-4 border-[#9f7aea]">
-                    <p className="text-sm font-semibold text-[#4a5568] mb-2">Open Orders</p>
-                    <p className="text-3xl text-[#2d3748]">{calculateOpenOrders()}</p>
+                    <p className="text-sm font-semibold text-[#4a5568] mb-2">Pending Orders</p>
+                    <p className="text-3xl text-[#2d3748]">{getOpenOrders()}</p>
                 </div>
             </div>
 
@@ -237,7 +256,9 @@ export default function Dashboard() {
                         <tbody className="divide-y divide-[#dce1e8]">
                             {vendors.length === 0 ? (
                                 <tr><td colSpan="7" className="px-5 py-8 text-center text-sm text-[#718096]">No vendors found.</td></tr>
-                            ) : vendors.map((v) => (
+                            ) : vendors.map((v) => {
+                                const spend = getEffectiveSpend(v);
+                                return (
                                 <tr key={v.id} className="hover:bg-[#e8ebf0] transition-colors">
                                     <td className="px-5 py-4 text-sm text-[#4a72d1] font-medium">{v.vendorName || '-'}</td>
                                     <td className="px-5 py-4 text-sm text-[#4a5568]">{v.category || '-'}</td>
@@ -249,7 +270,7 @@ export default function Dashboard() {
                                             {v.status || 'Active'}
                                         </span>
                                     </td>
-                                    <td className="px-5 py-4 text-sm text-[#4a5568]">{v.email || '-'}</td>
+                                    <td className="px-5 py-4 text-sm text-[#4a5568]">{spend != null ? `₹${formatTotalSpend(spend)}` : '-'}</td>
                                     <td className="px-5 py-4 text-sm text-[#4a5568]">{v.companyName || '-'}</td>
                                     <td className="px-5 py-4 text-sm text-[#4a5568]">{v.contactPerson || '-'}</td>
                                     <td className="px-5 py-4 text-sm">
@@ -261,11 +282,55 @@ export default function Dashboard() {
                                         </button>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* Analytics Graphs Section */}
+            {(vendors.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-[#f0f2f5] p-6 rounded shadow-sm">
+                        <h3 className="text-lg font-bold text-[#2d3748] mb-4">Spend by Category</h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={spendByCategory} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce1e8" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#4a5568' }} angle={-25} textAnchor="end" height={50} />
+                                    <YAxis tickFormatter={(val) => '₹' + formatTotalSpend(val)} tick={{ fontSize: 12, fill: '#4a5568' }} />
+                                    <RechartsTooltip formatter={(val) => '₹' + formatTotalSpend(val)} contentStyle={{ borderRadius: '4px', border: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} cursor={{fill: '#e4e6ea'}} />
+                                    <Bar dataKey="spend" fill="#4a72d1" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                    <div className="bg-[#f0f2f5] p-6 rounded shadow-sm">
+                        <h3 className="text-lg font-bold text-[#2d3748] mb-4">Vendor Status Distribution</h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={vendorStatusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {vendorStatusData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip contentStyle={{ borderRadius: '4px', border: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} />
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '13px', color: '#4a5568' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

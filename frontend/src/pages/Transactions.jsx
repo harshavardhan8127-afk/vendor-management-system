@@ -14,7 +14,7 @@ export default function Transactions() {
                    vendorName: v.vendorName || 'Unknown Vendor',
                    transactionDate: new Date().toISOString().split('T')[0],
                    transactionType: v.category === 'Services' ? 'Service Invoice' : 'Supply Purchase',
-                   amount: v.email || '₹0',
+                   amount: v.totalSpend != null ? `₹${v.totalSpend}` : (v.email || '₹0'),
                    paymentStatus: v.status === 'Active' ? 'Paid' : (v.status === 'Pending' ? 'Pending' : 'Failed')
                }));
                setTransactions(mappedTxs);

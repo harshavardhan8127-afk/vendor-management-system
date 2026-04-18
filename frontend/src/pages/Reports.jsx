@@ -25,7 +25,9 @@ export default function Reports() {
         vendors.forEach(v => {
             const cat = v.category || 'Uncategorized';
             let amount = 0;
-            if (v.email) {
+            if (v.totalSpend != null) {
+                amount = Number(v.totalSpend) || 0;
+            } else if (v.email) {
                 let val = v.email.replace(/[₹$,]/g, '').trim().toLowerCase();
                 let mult = 1;
                 if (val.endsWith('k')) { mult = 1000; val = val.replace('k', ''); }
@@ -104,7 +106,7 @@ export default function Reports() {
             id: `Tx-${(v.id * 837 + 1024)}`,
             vendorName: v.vendorName || 'Unknown',
             date: new Date().toISOString().split('T')[0],
-            amount: v.email || '₹0',
+            amount: v.totalSpend != null ? `₹${v.totalSpend}` : (v.email || '₹0'),
             status: v.status === 'Active' ? 'Paid' : (v.status === 'Pending' ? 'Pending' : 'Failed')
         }));
 

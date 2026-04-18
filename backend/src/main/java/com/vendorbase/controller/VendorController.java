@@ -30,6 +30,9 @@ public class VendorController {
         if (vendor.getRegistrationDate() == null) {
             vendor.setRegistrationDate(LocalDate.now());
         }
+        if (vendor.getEmail() == null) {
+            vendor.setEmail("");
+        }
         vendor.setOwnerUsername(principal.getName());
         return vendorRepository.save(vendor);
     }
@@ -57,6 +60,7 @@ public class VendorController {
                     vendor.setCompanyName(vendorDetails.getCompanyName());
                     vendor.setStatus(vendorDetails.getStatus());
                     vendor.setRating(vendorDetails.getRating());
+                    vendor.setTotalSpend(vendorDetails.getTotalSpend());
                     return ResponseEntity.ok(vendorRepository.save(vendor));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());

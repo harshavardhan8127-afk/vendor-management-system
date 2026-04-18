@@ -21,6 +21,8 @@ public class Vendor {
     private LocalDate registrationDate;
     private String status;
     private Double rating;
+    @Column(name = "total_spend")
+    private Double totalSpend;
     private String ownerUsername;
 
     public Vendor() {}
@@ -50,4 +52,6 @@ public class Vendor {
     public void setStatus(String status) { this.status = status; }
     public Double getRating() { return rating; }
     public void setRating(Double rating) { this.rating = rating; }
+    public Double getTotalSpend() { return totalSpend; }
+    public void setTotalSpend(Double totalSpend) { this.totalSpend = totalSpend; }
 }
